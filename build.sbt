@@ -3,6 +3,7 @@ val scala3Version = "3.5.2"
 val sparkVersion = "3.5.3"
 
 fork := true
+
 javaOptions ++= Seq(
   "--add-opens=java.base/java.lang=ALL-UNNAMED",
   "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
@@ -20,10 +21,7 @@ javaOptions ++= Seq(
   "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
 )
 
-
 javaHome := Some(file("C:\\Users\\F6780837\\.vscode\\extensions\\redhat.java-1.36.0-win32-x64\\jre\\17.0.13-win32-x86_64"))
-
-// run / javaOptions += "--add-exports java.base/sun.nio.ch=ALL-UNNAMED"
 
 
 lazy val root = project
@@ -35,7 +33,8 @@ lazy val root = project
     scalaVersion := scala3Version,
 
     libraryDependencies ++= Seq(
-      "org.scalameta" %% "munit" % "1.0.0" % Test,
+      "org.scalameta"     %% "munit" % "1.0.0" % Test,
+      "org.scalatest"     %% "scalatest" % "3.2.19" % Test,
       ("org.apache.spark" %% "spark-core" % sparkVersion).cross(CrossVersion.for3Use2_13),
       ("org.apache.spark" %% "spark-sql" % sparkVersion).cross(CrossVersion.for3Use2_13),
       ("org.apache.spark" %% "spark-mllib" % sparkVersion).cross(CrossVersion.for3Use2_13)

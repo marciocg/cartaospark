@@ -22,6 +22,10 @@ import org.apache.spark.sql.Column
 import org.apache.spark.sql.expressions.Window
 
 object Main:
+  def soma(a: Int, b: Int): Int =
+     a + b
+  end soma
+  
   def main(args: Array[String]): Unit =
     val spark = SparkSession
       .builder()
@@ -141,3 +145,7 @@ object Main:
       .explain(extended = true)
 
     spark.stop()
+
+  end main
+  
+end Main
