@@ -11,7 +11,9 @@ object Main:
 
     val df = spark.read
       .option("header", value = true)
+      .option("inferSchema", value = true)
       .csv("data/1000CC.csv")
 
     df.show()
+    df.printSchema()
 
