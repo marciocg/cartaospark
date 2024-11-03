@@ -11,10 +11,15 @@ import org.apache.spark.sql.functions.{
   date_diff,
   median,
   mode,
-  to_date, year, max, date_format, to_timestamp
+  to_date,
+  year,
+  max,
+  date_format,
+  to_timestamp,
+  row_number
 }
 import org.apache.spark.sql.Column
-import org.apache.spark.sql.functions
+import org.apache.spark.sql.expressions.Window
 
 object Main:
   def main(args: Array[String]): Unit =
@@ -72,12 +77,12 @@ object Main:
     // dá pra usar a funcao col() e também `import spark.implicits.*` e $"Issuing Bank"
 
     // aqui foi dificil mas resolveu uma coluna, se todas são mesmo padrao dá pra usar no .option do .spark.read
-/*  val testeDateFormatStr = date_format(to_timestamp(col("Issue Date"), "MM/yyyy"), "MM/yyyy") //devolve string
+    /*  val testeDateFormatStr = date_format(to_timestamp(col("Issue Date"), "MM/yyyy"), "MM/yyyy") //devolve string
     val testeDateFormat = to_date(to_timestamp(col("Issue Date"), "MM/yyyy"))     //devpolve date
     df.select(testeDateFormat).printSchema()
     df.select(testeDateFormat).show()
- */    
-    
+     */
+
     val renomearColunas = List(
       col("Card Number").as("plastico"),
       col("Issuing Bank").as("emissor"),
@@ -94,10 +99,28 @@ object Main:
     val dtEmissao = dados("dataEmissao")
     val anoEmissao = year(dtEmissao).as("ano")
 
+    // df.select(renomearColunas: _*).show()           //transforma Lista em VarArgs scala 2
+    // df.select(renomearColunas*).show()           //transforma Lista em VarArgs scala 3
+    // df.select(df.columns.map(c => col(c).as(c.toLowerCase()))*).show()  // coloca todas colunas em minúsculo
+
+    val comDiferenca = dados
+      .withColumn(
+        "diff",
+        date_diff(col("dataVencimento"), col("dataEmissao"))
+      ) // essa coluna é em dias
+    // comDiferenca.describe().show()
+    comDiferenca.show()
+    comDiferenca
+      .agg(
+        median(col("limite").as("Mediana Limite")),
+        mode(col("limite").as("Moda Limite"))
+      )
+      .show()
+
     dados
       .groupBy(anoEmissao)
       .agg(max("plastico"))
-      //.filter(anoEmissao === 2017)
+      // .filter(anoEmissao === 2017)
       .filter(anoEmissao < 2024)
       // .sort(anoEmissao.desc)          // nao entendi pq nao funciona
       .sort(col("ano").desc)
@@ -108,15 +131,12 @@ object Main:
       .min("plastico")
       .show()
 
-
-    // df.select(renomearColunas: _*).show()           //transforma Lista em VarArgs scala 2
-    // df.select(renomearColunas*).show()           //transforma Lista em VarArgs scala 3
-    // df.select(df.columns.map(c => col(c).as(c.toLowerCase()))*).show()  // coloca todas colunas em minúsculo
-
-    val comDiferenca = dados
-      .withColumn("diff", date_diff(col("dataVencimento"), col("dataEmissao")))   // essa coluna é em dias
-    // comDiferenca.describe().show()
-    comDiferenca.show()
-    comDiferenca.agg(median(col("limite").as("Mediana Limite")), mode(col("limite").as("Moda Limite"))).show()
+    // nao entendi window over direito, preciso estudar isso
+    val janela = Window.partitionBy(anoEmissao).orderBy(col("plastico"))
+    dados
+      .withColumn("rank", row_number().over(janela))
+      .filter(col("rank") === 2)
+      .sort(col("plastico").desc)
+      .show()
 
     spark.stop()
