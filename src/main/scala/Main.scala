@@ -10,9 +10,11 @@ import org.apache.spark.sql.functions.{
   col,
   date_diff,
   median,
-  mode
+  mode,
+  to_date, year, max, date_format, to_timestamp
 }
 import org.apache.spark.sql.Column
+import org.apache.spark.sql.functions
 
 object Main:
   def main(args: Array[String]): Unit =
@@ -25,6 +27,7 @@ object Main:
     val df = spark.read
       .option("header", value = true)
       .option("inferSchema", value = true)
+      .option("dateformat", "MM/yyyy")
       .csv("data/1000CC.csv")
 
     // df.show()
@@ -68,6 +71,13 @@ object Main:
 
     // dá pra usar a funcao col() e também `import spark.implicits.*` e $"Issuing Bank"
 
+    // aqui foi dificil mas resolveu uma coluna, se todas são mesmo padrao dá pra usar no .option do .spark.read
+/*  val testeDateFormatStr = date_format(to_timestamp(col("Issue Date"), "MM/yyyy"), "MM/yyyy") //devolve string
+    val testeDateFormat = to_date(to_timestamp(col("Issue Date"), "MM/yyyy"))     //devpolve date
+    df.select(testeDateFormat).printSchema()
+    df.select(testeDateFormat).show()
+ */    
+    
     val renomearColunas = List(
       col("Card Number").as("plastico"),
       col("Issuing Bank").as("emissor"),
@@ -80,16 +90,33 @@ object Main:
       col("Card PIN").as("senha"),
       col("Credit Limit").as("limite")
     )
+    val dados = df.select(renomearColunas*)
+    val dtEmissao = dados("dataEmissao")
+    val anoEmissao = year(dtEmissao).as("ano")
+
+    dados
+      .groupBy(anoEmissao)
+      .agg(max("plastico"))
+      //.filter(anoEmissao === 2017)
+      .filter(anoEmissao < 2024)
+      // .sort(anoEmissao.desc)          // nao entendi pq nao funciona
+      .sort(col("ano").desc)
+      .show()
+
+    dados
+      .groupBy(anoEmissao)
+      .min("plastico")
+      .show()
+
+
     // df.select(renomearColunas: _*).show()           //transforma Lista em VarArgs scala 2
     // df.select(renomearColunas*).show()           //transforma Lista em VarArgs scala 3
-    df.select(df.columns.map(c => col(c).as(c.toLowerCase()))*).show()
+    // df.select(df.columns.map(c => col(c).as(c.toLowerCase()))*).show()  // coloca todas colunas em minúsculo
 
-    // tá faltando converter as colunas de data pra tipo data -> estudar as funcoes!
-    val dados = df.select(renomearColunas*)
     val comDiferenca = dados
-      .withColumn("diff", date_diff(col("dataVencimento"), col("dataEmissao")))
-    // comDiferenca.show()
-    comDiferenca.describe().show()
-    comDiferenca.agg(median(col("limite")), mode(col("limite"))).show()
+      .withColumn("diff", date_diff(col("dataVencimento"), col("dataEmissao")))   // essa coluna é em dias
+    // comDiferenca.describe().show()
+    comDiferenca.show()
+    comDiferenca.agg(median(col("limite").as("Mediana Limite")), mode(col("limite").as("Moda Limite"))).show()
 
     spark.stop()
