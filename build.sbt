@@ -33,8 +33,9 @@ lazy val root = project
     scalaVersion := scala3Version,
 
     libraryDependencies ++= Seq(
-      "org.scalameta"     %% "munit" % "1.0.0" % Test,
-      "org.scalatest"     %% "scalatest" % "3.2.19" % Test,
+      // ("org.scalameta"     %% "munit" % "1.0.2" % Test).cross(CrossVersion.for3Use2_13),
+      "org.scalameta"     %% "munit" % "1.0.2" % Test,
+      // "org.scalatest"     %% "scalatest" % "3.2.19" % Test,
       ("org.apache.spark" %% "spark-core" % sparkVersion).cross(CrossVersion.for3Use2_13),
       ("org.apache.spark" %% "spark-sql" % sparkVersion).cross(CrossVersion.for3Use2_13),
       ("org.apache.spark" %% "spark-mllib" % sparkVersion).cross(CrossVersion.for3Use2_13)

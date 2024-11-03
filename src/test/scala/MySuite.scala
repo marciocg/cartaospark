@@ -6,4 +6,9 @@ class MySuite extends munit.FunSuite {
     val expected = 42
     assertEquals(obtained, expected)
   }
+
+  test("Teste função soma(2,3) retornando 5") {
+    assertEquals(Main.soma(2,3), 5)
+  }
+  
 }
