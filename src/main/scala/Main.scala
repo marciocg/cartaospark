@@ -137,6 +137,7 @@ object Main:
       .withColumn("rank", row_number().over(janela))
       .filter(col("rank") === 2)
       .sort(col("plastico").desc)
-      .show()
+      // .show()
+      .explain(extended = true)
 
     spark.stop()
