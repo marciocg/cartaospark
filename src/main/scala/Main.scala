@@ -32,6 +32,7 @@ object Main:
     dados
       .withColumn("rank", row_number().over(janela))
       .filter(col("rank") === 1)
+      // .drop("rank")        // se usar esse drop tem que arrumar o teste e tirar o '1' do expected
       .sort(col("plastico").desc)
       // .show()
       //.explain(extended = true)
