@@ -1,6 +1,7 @@
 // package cartaospark
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.functions.{
   lit,
@@ -26,6 +27,17 @@ object Main:
      a + b
   end soma
   
+  def plasticoMaiorNumeracaoPorAno(anoEmissao: Column, dados: DataFrame): DataFrame =
+    val janela = Window.partitionBy(anoEmissao).orderBy(col("plastico"))
+    dados
+      .withColumn("rank", row_number().over(janela))
+      .filter(col("rank") === 1)
+      .sort(col("plastico").desc)
+      // .show()
+      //.explain(extended = true)
+
+  end plasticoMaiorNumeracaoPorAno
+
   def main(args: Array[String]): Unit =
     val spark = SparkSession
       .builder()
@@ -136,13 +148,7 @@ object Main:
       .show()
 
     // nao entendi window over direito, preciso estudar isso
-    val janela = Window.partitionBy(anoEmissao).orderBy(col("plastico"))
-    dados
-      .withColumn("rank", row_number().over(janela))
-      .filter(col("rank") === 2)
-      .sort(col("plastico").desc)
-      // .show()
-      .explain(extended = true)
+    val windowMaiorlasticoDoAno = plasticoMaiorNumeracaoPorAno(anoEmissao, dados)
 
     spark.stop()
 
