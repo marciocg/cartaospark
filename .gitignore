@@ -34,3 +34,5 @@ metals.sbt
 # dados
 data/agosto.csv
 data/maio.csv
+data/agosto.parquet
+data/maio.parquet

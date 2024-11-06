@@ -21,40 +21,52 @@ import org.apache.spark.sql.functions.{
 }
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.SaveMode
+// import com.globalmentor.apache.hadoop.fs.BareLocalFileSystem
+// import org.apache.hadoop.fs.FileSystem
+// import org.apache.hadoop.fs.LocalFileSystem
+// import org.apache.hadoop.fs.RawLocalFileSystem
+
 
 object Main:
-  def soma(a: Int, b: Int): Int =
-     a + b
-  end soma
-  
-  def plasticoMaiorNumeracaoPorAno(anoEmissao: Column, dados: DataFrame): DataFrame =
-    val janela = Window.partitionBy(anoEmissao).orderBy(col("plastico"))
-    dados
-      .withColumn("rank", row_number().over(janela))
-      .filter(col("rank") === 1)
-      // .drop("rank")        // se usar esse drop tem que arrumar o teste e tirar o '1' do expected
-      .sort(col("plastico").desc)
-      // .show()
-      //.explain(extended = true)
-
-  end plasticoMaiorNumeracaoPorAno
-
   def main(args: Array[String]): Unit =
     val spark = SparkSession
       .builder()
       .appName { "cartao-spark" }
       .master("local[*]")
       .getOrCreate()
-
-    val df = spark.read
+/*
+    val df = spark    //.sparkContext.hadoopConfiguration.setClass("fs.file.impl", BareLocalFileSystem, FileSystem)          //configura um fs hadoop fake pra fazer write do parquet
+      .read
       .option("header", value = true)
       .option("inferSchema", value = true)
-      .option("dateformat", "MM/yyyy")
-      .csv("data/1000CC.csv")
+      // .option("dateformat", "MM/yyyy")
+      .option("timestampFormat", value = "yyyy-MM-dd HH:mm:ss")
+      .option("sep", value = "|")
+      .csv("data/agosto.csv")
 
-    // df.show()
-    df.printSchema()
+      // df.write.mode(SaveMode.Overwrite).parquet("data/agosto.parquet")
+*/
+    val df = spark  
+      .read
+      .option("header", value = true)
+      .option("inferSchema", value = true)
+      // .option("dateformat", "MM/yyyy")
+      .option("timestampFormat", value = "yyyy-MM-dd HH:mm:ss")
+      .option("sep", value = "|")
+      .parquet("data/agosto.parquet")
 
+    df.select("002", "006", "1626", "035", "100", "999", "558", "368", "550", "393", "401").show()
+    
+    val mci = df("1626").as("mci")
+    val cartao = df("035").as("cartao")
+
+    val grupo = List(cartao, mci)                        // grupo é argumento varargs quando usa "*" ao lado da variável
+
+    df.groupBy(grupo*).count().show()
+
+
+/*
     // df.select("Issuing Bank", "Card Number").show()
     val emissor = df("Issuing Bank")
 
@@ -150,7 +162,7 @@ object Main:
 
     // nao entendi window over direito, preciso estudar isso
     val windowMaiorlasticoDoAno = plasticoMaiorNumeracaoPorAno(anoEmissao, dados)
-
+*/
     spark.stop()
 
   end main
