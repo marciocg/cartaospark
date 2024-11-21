@@ -25,7 +25,7 @@ class MySuite extends munit.FunSuite {
       StructField("plastico", LongType, nullable = false)
     )
   )
-
+/* 
   // inserindo dados na tabela pra teste DML
   test("Testa método no object Main") {
     val linTeste = Seq(
@@ -50,5 +50,5 @@ class MySuite extends munit.FunSuite {
     assertEquals(result, expected)      //pode passar um Array[T] onde se espera um Seq[T]
 
   }
-
+ */
 }

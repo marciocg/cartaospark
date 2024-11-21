@@ -1,4 +1,4 @@
-// package cartaospark
+package cartaospark
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.DataFrame
@@ -23,6 +23,8 @@ import org.apache.spark.sql.functions.{
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.SaveMode
+import cartaospark.Trabalho
+
 // import com.globalmentor.apache.hadoop.fs.BareLocalFileSystem
 // import org.apache.hadoop.fs.FileSystem
 // import org.apache.hadoop.fs.LocalFileSystem
@@ -35,6 +37,12 @@ object Main:
       .appName { "cartao-spark" }
       .master("local[*]")
       .getOrCreate()
+
+    val dados = Trabalho.montaBase(spark)
+    Trabalho.exec(dados)
+
+    spark.stop()
+    
     /*
     val df = spark    //.sparkContext.hadoopConfiguration.setClass("fs.file.impl", BareLocalFileSystem, FileSystem)          //configura um fs hadoop fake pra fazer write do parquet
       .read
@@ -47,6 +55,10 @@ object Main:
 
       // df.write.mode(SaveMode.Overwrite).parquet("data/agosto.parquet")
      */
+  end main
+
+  def resto(spark: SparkSession): Unit =
+
     val df = spark.read
       .option("header", value = true)
       .option("inferSchema", value = true)
@@ -128,6 +140,10 @@ object Main:
 
     val mci = df("1626").as("mci")
     val cartao = df("035").as("cartao")
+    val sexo = df("999").as("sexo")
+    val ind_pj = df("609").as("indicador_empresa")
+    val valor = df("100").as("valor")
+    val mcc = df("363").as("mcc")
 
     val grupo = List(cartao, mci) // grupo é argumento varargs quando usa "*" ao lado da variável
 
@@ -138,14 +154,29 @@ object Main:
     )).show()
  */
     // conta quantidade de mci diferente para cada plástico mascarado
-    df.groupBy(cartao)
+     df.groupBy(cartao)
       .agg(count_distinct(mci).as("qtd_mci_por_cartao"))
       .sort(col("qtd_mci_por_cartao").desc)
       .show()
-
-    df.select(mci).filter(cartao === "48546412XXXX3359").distinct().show(26)
+ 
+    df.select(mci).where(cartao === "48546412XXXX3359").distinct().show(26)
     df.select(mci).filter(cartao === "49845312XXXX4504").distinct().show()
 
+    df.groupBy(sexo)
+      .count().as("Compras por sexo")
+      .show()
+
+    df.groupBy(ind_pj)
+      .count().as("qt_indicador_empresa")
+      .show()
+
+
+    val sumario = df.describe()
+    sumario.show()
+
+    sumario.select("100", "363").show()
+
+    //df.summary().select(col("100"))
     /*
     // df.select("Issuing Bank", "Card Number").show()
     val emissor = df("Issuing Bank")
@@ -302,6 +333,6 @@ col("999").as("Sexo")
      */
     spark.stop()
 
-  end main
+  end resto
 
 end Main
