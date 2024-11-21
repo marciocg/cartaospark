@@ -26,7 +26,7 @@ object Trabalho:
     // val valor = df("100").as("Valor") //.cast(IntegerType)
     val selectColunas = List(
       col("068").as("Logo"),
-      //   col("545").as("MTI"),
+      col("545").as("MTI"),
       //entryMode,
       col("388").as("Resposta"),
     //   col("2501").as("Tokenizada"),
@@ -45,32 +45,40 @@ object Trabalho:
          col("100")
     //   col("999").as("Sexo")
     )
+    val mtis = Seq("0100", "0110", "0120", "0130", "0200", "0210")
     val limpo = df.select(selectColunas*)
       .withColumn("100", regexp_replace(col("100"), ",", "").cast(IntegerType))
     //   .withColumn("100", format_number(regexp_replace(col("100"), ",", "").cast(IntegerType), 2))
       .filter(col("100") > 0)
       .filter(col("Moeda") === 986)      
-      .filter(col("Resposta") === "00")           
-      .withColumnRenamed("100", "Valor")
+      .filter(col("Resposta") === "00")
+      .filter(col("MTI") === "0100" || col("MTI") === "0110" || col("MTI") === "0120" || col("MTI") === "0130" || col("MTI") === "0200" || col("MTI") === "0210")
+      //.filter(col("MTI").isin(mtis*))            // usando varargs não traz nenhum resultado? pq?
       .drop(col("Moeda"))
       .drop(col("Resposta"))
+      .drop(col("MTI"))
+      .withColumnRenamed("100", "Valor")
     
 
     // val limpo = df.select(selectColunas*).withColumn("100", bround(col("100"), 2))
+
+    limpo.show()
 
     limpo
   end montaBase
 
 
   def exec(limpo: Dataset[Row]): Unit =
-
     
-    limpo.printSchema()
-    limpo.summary()
-    limpo.show()
-    
-
-    val kmeans = new KMeans().setK(4).setSeed(Random.nextLong)
+/*     limpo.printSchema()
+    limpo.summary().show()
+    limpo.show()  
+ */
+    val kmeans = new KMeans()
+      .setK(4)
+      .setSeed(Random.nextLong)
+      //.setPredictionCol("Valor")
+      .setFeaturesCol("features")
 
 //  Assembling features into a single column
     val onehotencoder = new OneHotEncoder()
@@ -93,10 +101,21 @@ object Trabalho:
     // val saida = assembler.transform(limpo)
     val saida = assembler.transform(encoded)
 
-    val modelo = kmeans.fit(saida)
+    val treinoTesteArray = saida.randomSplit(Array(0.67, 0.33), Random.nextLong)
+
+    val (treino, teste) = treinoTesteArray match {
+      case Array(a, b) => 
+        (a.drop("Logo").drop("MCC"), 
+        b.drop("Logo").drop("MCC"))
+    }
+
+    treino.printSchema()
+    treino.show()
+    
+    val modelo = kmeans.fit(treino)
 
   // Make predictions
-    val previsoes = modelo.transform(saida)
+    val previsoes = modelo.transform(teste)
     previsoes.show()
 
   // Evaluate clustering by computing Silhouette score
@@ -105,10 +124,17 @@ object Trabalho:
     val silhouette = avaliador.evaluate(previsoes)
     println(s"Silhouette with squared euclidean distance = $silhouette")
 
+    val metricas = avaliador.getMetrics(previsoes).silhouette()
+
+    println(s"Silhouette 2 = $metricas")
+
+    val feats = avaliador.getFeaturesCol
+    val preds = avaliador.getPredictionCol
+    println(s"features e predictions = $feats e $preds")
   // Shows the result.
-    println("Cluster Centers: ")
+/*     println("Cluster Centers: ")
     modelo.clusterCenters.foreach(println)
-    
+ */    
   end exec
 
 end Trabalho
