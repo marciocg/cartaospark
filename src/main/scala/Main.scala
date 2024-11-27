@@ -35,6 +35,7 @@ object Main:
     val spark = SparkSession
       .builder()
       .appName { "cartao-spark" }
+      .config("spark.log.level", "ERROR")
       .master("local[*]")
       .getOrCreate()
 

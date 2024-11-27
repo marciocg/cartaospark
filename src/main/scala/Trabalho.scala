@@ -70,17 +70,7 @@ object Trabalho:
 
   def exec(limpo: Dataset[Row]): Unit =
     
-/*     limpo.printSchema()
-    limpo.summary().show()
-    limpo.show()  
- */
-    val kmeans = new KMeans()
-      .setK(4)
-      .setSeed(Random.nextLong)
-      //.setPredictionCol("Valor")
-      .setFeaturesCol("features")
-
-//  Assembling features into a single column
+//criando colunas de categorias numéricas
     val onehotencoder = new OneHotEncoder()
       .setInputCols(Array("Logo", "MCC"))
       .setOutputCols(Array("catLogo", "catMCC"))
@@ -88,13 +78,9 @@ object Trabalho:
     val modelenc = onehotencoder.fit(limpo)
     val encoded = modelenc.transform(limpo)
 
-/*     val assembler = new VectorAssembler()
-    //  .setInputCols(Array("Bandeira", "Moeda", "Logo", "Sexo", "MCC"))
-     .setInputCols(Array("Logo", "MCC"))
-     .setOutputCol("features")
- */
+//  Assembling features into a single column
     val assembler = new VectorAssembler()
-     .setInputCols(Array("catLogo", "catMCC"))    // se for usar sem o oneHotEncoder, entao fica só Logo e MCC
+     .setInputCols(Array("catLogo", "catMCC", "Valor"))    // se for usar sem o oneHotEncoder, entao fica só Logo e MCC
      .setOutputCol("features")
 
 
@@ -105,34 +91,44 @@ object Trabalho:
 
     val (treino, teste) = treinoTesteArray match {
       case Array(a, b) => 
-        (a.drop("Logo").drop("MCC"), 
-        b.drop("Logo").drop("MCC"))
+        (a.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC"), 
+        b.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC"))
     }
 
     treino.printSchema()
     treino.show()
-    
-    val modelo = kmeans.fit(treino)
 
-  // Make predictions
-    val previsoes = modelo.transform(teste)
-    previsoes.show()
-
-  // Evaluate clustering by computing Silhouette score
     val avaliador = new ClusteringEvaluator()
 
-    val silhouette = avaliador.evaluate(previsoes)
-    println(s"Silhouette with squared euclidean distance = $silhouette")
+    for k <- 2 to 12
+    do
+      val kmeans = new KMeans()
+        .setK(k)
+        .setSeed(Random.nextLong)
+        //.setPredictionCol("Valor")
+        .setFeaturesCol("features")
 
-    val metricas = avaliador.getMetrics(previsoes).silhouette()
+        val modelo = kmeans.fit(treino)
 
-    println(s"Silhouette 2 = $metricas")
+        // Make predictions
+        val previsoes = modelo.transform(teste)
+        // previsoes.select("features", "prediction")
+        //   .filter(not(col("prediction") === 0)).show()
+        // previsoes.printSchema()
+        // Evaluate clustering by computing Silhouette score
+        val silhouette = avaliador.evaluate(previsoes)
+        println(s"Silhouette for $k with squared euclidean distance = $silhouette")
+
+
+
+/*  val metricas = avaliador.getMetrics(previsoes).silhouette()
+    println(s"Silhouette 2 = $metricas") 
 
     val feats = avaliador.getFeaturesCol
     val preds = avaliador.getPredictionCol
-    println(s"features e predictions = $feats e $preds")
+    println(s"colunas de features e predictions = $feats e $preds")
   // Shows the result.
-/*     println("Cluster Centers: ")
+     println("Cluster Centers: ")
     modelo.clusterCenters.foreach(println)
  */    
   end exec
