@@ -149,7 +149,7 @@ object Main:
     val grupo = List(cartao, mci) // grupo é argumento varargs quando usa "*" ao lado da variável
 
     //os 2 groupBy abaixo dão o mesmo resultado
-/*     df.groupBy(grupo*).agg(count(mci).as("qtd_mci_cartao")).show()
+/*  df.groupBy(grupo*).agg(count(mci).as("qtd_mci_cartao")).show()
     df.groupBy(grupo*).agg(Map(
       "1626" -> "count"
     )).show()
