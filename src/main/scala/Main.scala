@@ -39,8 +39,8 @@ object Main:
       .master("local[*]")
       .getOrCreate()
 
-    val dados = Trabalho.montaBase(spark)
-    Trabalho.exec(dados)
+    val dados = Fluxo.montaBase(spark)
+    Fluxo.exec(dados)
 
     spark.stop()
     
