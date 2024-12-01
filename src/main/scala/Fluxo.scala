@@ -12,6 +12,8 @@ import org.apache.spark.sql.Row
 import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.sql.SaveMode
+import org.apache.spark.ml.linalg.{Matrix, Vectors}
+import org.apache.spark.ml.stat.Correlation
 
 object Fluxo:
 
@@ -118,7 +120,7 @@ object Fluxo:
 
     val avaliador = new ClusteringEvaluator()
 
-    for k <- 2 to 6
+    for k <- 3 to 3
     do
       val kmeans = new KMeans()
         .setK(k)
@@ -153,5 +155,85 @@ object Fluxo:
     modelo.clusterCenters.foreach(println)
  */    
   end exec
+
+  def reexec (saida: Dataset[Row], ik: Int, fk: Int): Unit =
+  //saida.write.mode(SaveMode.Ignore).parquet("data/agosto_saida.parquet")
+
+    val treinoTesteArray = saida.randomSplit(Array(0.67, 0.33), Random.nextLong)
+
+    val (treino, teste) = treinoTesteArray match {
+      case Array(a, b) => (a, b)
+        // (a.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"), 
+        // b.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"))
+    }
+
+    treino.printSchema
+    teste.printSchema
+
+    val qtdTreino = treino.count()
+    val qtdTeste = teste.count()
+    println(s"quantidade de rows count no treino = $qtdTreino")
+    println(s"quantidade de rows count no teste = $qtdTeste")
+
+    val avaliador = new ClusteringEvaluator()
+
+    for k <- ik to fk
+    do
+      val kmeans = new KMeans()
+        .setK(k)
+        .setSeed(Random.nextLong)
+        //.setPredictionCol("Valor")
+        .setFeaturesCol("features")
+
+        val modelo = kmeans.fit(treino)
+
+      // Make predictions
+        val previsoes = modelo.transform(teste)
+      // previsoes.select("features", "prediction")
+      //   .filter(not(col("prediction") === 0)).show()
+        previsoes.printSchema()
+        previsoes.groupBy(col("prediction")).count().as("qtd_por_cluster").show()
+
+        // previsoes.filter(col("prediction") === 1).sort(col("Valor").asc).show(10)
+        previsoes.filter(col("prediction") === 1).sort(col("Valor").desc).show(10)
+        previsoes.filter(col("prediction") === 1).groupBy(col("MCC"))
+           .count() //.as("qtd_por_mcc")
+           .sort(col("count").desc)
+           .show(10)
+        previsoes.filter(col("prediction") === 1).groupBy(col("Logo"))
+           .count()  //.as("qtd_por_mdld")
+           .sort(col("count").desc)
+           .show(10)
+
+        // previsoes.filter(col("prediction") === 2).sort(col("Valor").asc).show(10)
+        previsoes.filter(col("prediction") === 2).sort(col("Valor").desc).show(10)
+        previsoes.filter(col("prediction") === 2).groupBy(col("MCC"))
+           .count() //.as("qtd_por_mcc")
+           .sort(col("count").desc)
+           .show(10)
+        previsoes.filter(col("prediction") === 2).groupBy(col("Logo"))
+           .count() //.as("qtd_por_mdld")
+           .sort(col("count").desc)
+           .show(10)
+
+        // correlations:
+        // val pcorr = previsoes.map(Tuple1.apply).toDF("features")
+        val Row(coeff1: Matrix) = Correlation.corr(previsoes, "features").head
+        println(s"Pearson correlation matrix:\n $coeff1")
+
+      // Evaluate clustering by computing Silhouette score
+        val silhouette = avaliador.evaluate(previsoes)
+        println(s"Silhouette for $k with squared euclidean distance = $silhouette")
+  end reexec
+
+  def carregaBase(spark: SparkSession): Dataset[Row] = 
+    val df = spark.read
+      .option("header", value = true)
+      .option("inferSchema", value = true)
+      .parquet("data/agosto_saida.parquet")
+    df
+  
+  end carregaBase
+
 
 end Fluxo

@@ -18,10 +18,14 @@ javaOptions ++= Seq(
   "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
   "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
   "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
-  "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
+  "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+  // "-XX:+UseG1GC",
+  "-XX:+UseZGC",
+  "-Xms4096m",
+  "-Xms8192m"
 )
 
-javaHome := Some(file("C:\\Users\\F6780837\\.vscode\\extensions\\redhat.java-1.36.0-win32-x64\\jre\\17.0.13-win32-x86_64"))
+javaHome := Some(file("C:\\Users\\F6780837\\.vscode\\extensions\\redhat.java-1.37.0-win32-x64\\jre\\17.0.13-win32-x86_64"))
 
 
 lazy val root = project

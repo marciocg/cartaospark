@@ -36,11 +36,18 @@ object Main:
       .builder()
       .appName { "cartao-spark" }
       .config("spark.log.level", "ERROR")
+      .config("spark.driver.maxResultSize", "2g")
       .master("local[*]")
       .getOrCreate()
 
-    val dados = Fluxo.montaBase(spark)
-    Fluxo.exec(dados)
+    //val dados = Fluxo.montaBase(spark)
+    //Fluxo.exec(dados)
+
+
+    val saida = Fluxo.carregaBase(spark)
+    val ik = 3
+    val fk = 3
+    Fluxo.reexec(saida, ik, fk)
 
     spark.stop()
     
