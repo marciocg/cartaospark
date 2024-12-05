@@ -14,6 +14,8 @@ import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.ml.linalg.{Matrix, Vectors}
 import org.apache.spark.ml.stat.Correlation
+import org.apache.spark.ml.fpm.FPGrowth
+import org.apache.spark.sql.Column
 
 object Fluxo:
 
@@ -28,6 +30,10 @@ object Fluxo:
 
     //val entryMode = col("368").as("Entry Mode").cast(IntegerType)
     // val valor = df("100").as("Valor") //.cast(IntegerType)
+
+    val dfcount = df.count()
+    println(s"quantidade total de registros no arquivo = $dfcount")
+
     val selectColunas = List(
       col("068").as("Logo"),
       col("545").as("MTI"),
@@ -43,7 +49,7 @@ object Fluxo:
       //   col("401").as("C Accpt ID"),
       //col("366").as("Pais"),
       //   col("035B").as("BIN"),
-    //   col("609").as("Ind Empresarial"),
+      col("609").as("Ind Empresarial"),
     //   col("1626").as("MCI"),
       col("100"),
       col("999").as("Sexo")
@@ -57,15 +63,20 @@ object Fluxo:
       .filter(col("Resposta") === "00")
       .filter(col("MTI") === "0100" || col("MTI") === "0110" || col("MTI") === "0120" || col("MTI") === "0130" || col("MTI") === "0200" || col("MTI") === "0210")
       .filter(col("Sexo").contains("M") || col("Sexo").contains("F"))
+      .filter(not(col("Ind Empresarial") === "S"))
       .filter(col("Bandeira").contains("V") || col("Bandeira").contains("M") || col("Bandeira").contains("E"))
       //.filter(col("MTI").isin(mtis*))            // usando varargs não traz nenhum resultado? pq?
       .drop(col("Moeda"))
       .drop(col("Resposta"))
       .drop(col("MTI"))
+      .drop(col("Ind Empresarial"))
       .withColumnRenamed("100", "Valor")
     
 
     // val limpo = df.select(selectColunas*).withColumn("100", bround(col("100"), 2))
+
+    val limpocount = limpo.count()
+    println(s"quantidade de registros no arquivo limpo = $limpocount")
 
     limpo.show()
 
@@ -99,6 +110,10 @@ object Fluxo:
 
     saida.show()
 
+    saida.printSchema()
+
+    //fazfpgrowth(saida, array("catLogo", "catMCC", "catBandeira", "catSexo"))
+    //fazfpgrowth(saida, array("features"))
 
     saida.write.mode(SaveMode.Ignore).parquet("data/agosto_saida.parquet")
 
@@ -120,12 +135,11 @@ object Fluxo:
 
     val avaliador = new ClusteringEvaluator()
 
-    for k <- 3 to 3
+    for k <- 2 to 5
     do
       val kmeans = new KMeans()
         .setK(k)
         .setSeed(Random.nextLong)
-        //.setPredictionCol("Valor")
         .setFeaturesCol("features")
 
         val modelo = kmeans.fit(treino)
@@ -134,7 +148,15 @@ object Fluxo:
         val previsoes = modelo.transform(teste)
         // previsoes.select("features", "prediction")
         //   .filter(not(col("prediction") === 0)).show()
-        previsoes.printSchema()
+        
+        //previsoes.printSchema()
+
+        println("Quantidade de registros por cluster: ")
+        previsoes.groupBy(col("prediction")).count().as("qtd_por_cluster").show()
+
+        println("Cluster Centers: ")
+        modelo.clusterCenters.foreach(println)
+        
         // Evaluate clustering by computing Silhouette score
         val silhouette = avaliador.evaluate(previsoes)
         println(s"Silhouette for $k with squared euclidean distance = $silhouette")
@@ -151,13 +173,15 @@ object Fluxo:
     val preds = avaliador.getPredictionCol
     println(s"colunas de features e predictions = $feats e $preds")
   // Shows the result.
-     println("Cluster Centers: ")
+    println("Cluster Centers: ")
     modelo.clusterCenters.foreach(println)
  */    
   end exec
 
   def reexec (saida: Dataset[Row], ik: Int, fk: Int): Unit =
-  //saida.write.mode(SaveMode.Ignore).parquet("data/agosto_saida.parquet")
+    // saida.write.mode(SaveMode.Ignore).parquet("data/agosto_saida.parquet")
+
+    //fazfpgrowth(saida, array("Logo", "MCC", "Bandeira", "Sexo"))
 
     val treinoTesteArray = saida.randomSplit(Array(0.67, 0.33), Random.nextLong)
 
@@ -182,7 +206,6 @@ object Fluxo:
       val kmeans = new KMeans()
         .setK(k)
         .setSeed(Random.nextLong)
-        //.setPredictionCol("Valor")
         .setFeaturesCol("features")
 
         val modelo = kmeans.fit(treino)
@@ -191,39 +214,45 @@ object Fluxo:
         val previsoes = modelo.transform(teste)
       // previsoes.select("features", "prediction")
       //   .filter(not(col("prediction") === 0)).show()
-        previsoes.printSchema()
+        // println("Schema do dataset de previsoes com " + k.toString() + " clusters: ")
+        // previsoes.printSchema()
+
+        println("Quantidade de registros em cada cluster, para " + k.toString() + "clusters:")
         previsoes.groupBy(col("prediction")).count().as("qtd_por_cluster").show()
 
-        // previsoes.filter(col("prediction") === 1).sort(col("Valor").asc).show(10)
-        previsoes.filter(col("prediction") === 1).sort(col("Valor").desc).show(10)
-        previsoes.filter(col("prediction") === 1).groupBy(col("MCC"))
+        println("Os 5 maiores valores de cada cluster:")
+        for n <- 0 to k
+        do  previsoes.filter(col("prediction") === n).sort(col("Valor").desc).show(5)
+
+        println("Os 5 MCCs com maiores quantidades de transações em cada cluster:")
+        for n <- 0 to k
+        do previsoes.filter(col("prediction") === 1).groupBy(col("MCC"))
            .count() //.as("qtd_por_mcc")
            .sort(col("count").desc)
            .show(10)
-        previsoes.filter(col("prediction") === 1).groupBy(col("Logo"))
+
+        println("As 5 Modalidades de cartão com maiores quantidades de transações em cada cluster:")
+        for n <- 0 to k
+        do previsoes.filter(col("prediction") === 1).groupBy(col("Logo"))
            .count()  //.as("qtd_por_mdld")
            .sort(col("count").desc)
-           .show(10)
+           .show(10) 
 
-        // previsoes.filter(col("prediction") === 2).sort(col("Valor").asc).show(10)
-        previsoes.filter(col("prediction") === 2).sort(col("Valor").desc).show(10)
-        previsoes.filter(col("prediction") === 2).groupBy(col("MCC"))
-           .count() //.as("qtd_por_mcc")
-           .sort(col("count").desc)
-           .show(10)
-        previsoes.filter(col("prediction") === 2).groupBy(col("Logo"))
-           .count() //.as("qtd_por_mdld")
-           .sort(col("count").desc)
-           .show(10)
-
+        // grava o resultado no arquivo parquet
+        previsoes.select("Logo", "Bandeira", "MCC", "Valor", "Sexo", "prediction")
+           .write.mode(SaveMode.Ignore)
+           .option("header", "true")
+           .parquet("data/agosto_saida_clusters_" + k.toString() + ".parquet")
+     
         // correlations:
         // val pcorr = previsoes.map(Tuple1.apply).toDF("features")
-        val Row(coeff1: Matrix) = Correlation.corr(previsoes, "features").head
-        println(s"Pearson correlation matrix:\n $coeff1")
+        // val Row(coeff1: Matrix) = Correlation.corr(previsoes, "features").head
+        // println(s"Pearson correlation matrix:\n $coeff1")
+
 
       // Evaluate clustering by computing Silhouette score
-        val silhouette = avaliador.evaluate(previsoes)
-        println(s"Silhouette for $k with squared euclidean distance = $silhouette")
+        // val silhouette = avaliador.evaluate(previsoes)
+        // println(s"Silhouette for $k with squared euclidean distance = $silhouette")
   end reexec
 
   def carregaBase(spark: SparkSession): Dataset[Row] = 
@@ -235,5 +264,27 @@ object Fluxo:
   
   end carregaBase
 
+  def fazfpgrowth(df: Dataset[Row], arrCols: Column): Unit = 
+    //https://spark.apache.org/docs/3.5.3/ml-frequent-pattern-mining.html#fp-growth
+
+    // Construção do DataFrame com um array das colunas
+    val arrayDF = df.withColumn("colunasArray", arrCols) //, "Valor"))
+    //val arrayDF = df.withColumn("colunasArray", array("Logo", "MCC", "Bandeira", "Sexo")) //, "Valor"))
+
+    val fpgrowth = new FPGrowth().setItemsCol("colunasArray").setMinSupport(0.5).setMinConfidence(0.5)
+    val modelofp = fpgrowth.fit(arrayDF)
+    
+    // Display frequent itemsets.
+    modelofp.freqItemsets.show()
+    
+    // Display generated association rules.
+    modelofp.associationRules.show()
+    
+    // transform examines the input items against all the association rules and summarize the
+    // consequents as prediction
+    modelofp.transform(arrayDF).show()
+    
+    
+  end fazfpgrowth
 
 end Fluxo

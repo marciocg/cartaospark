@@ -40,13 +40,13 @@ object Main:
       .master("local[*]")
       .getOrCreate()
 
-    //val dados = Fluxo.montaBase(spark)
-    //Fluxo.exec(dados)
-
+/*   val dados = Fluxo.montaBase(spark)
+     Fluxo.exec(dados)
+ */
 
     val saida = Fluxo.carregaBase(spark)
-    val ik = 3
-    val fk = 3
+    val ik = 2
+    val fk = 5
     Fluxo.reexec(saida, ik, fk)
 
     spark.stop()
