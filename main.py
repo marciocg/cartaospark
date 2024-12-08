@@ -7,9 +7,9 @@ spark = SparkSession.builder.appName("cartao-spark").master("local[*]").getOrCre
 
 sc = spark.sparkContext
 
-df = spark.read.csv("data/agosto.csv", header=True, inferSchema=True, timestampFormat="yyyy-MM-dd HH:mm:ss", sep="|")
+df = spark.read.csv("data/maio.csv", header=True, inferSchema=True, timestampFormat="yyyy-MM-dd HH:mm:ss", sep="|")
 
-df.write.mode("overwrite").parquet("data/agosto.parquet")
+df.write.mode("overwrite").parquet("data/maio.parquet")
 
 df.show()
 

@@ -19,14 +19,14 @@ import org.apache.spark.sql.Column
 
 object Fluxo:
 
-  def montaBase(spark: SparkSession): Dataset[Row] = 
+  def montaBase(spark: SparkSession, arquivo: String): Dataset[Row] = 
     val df = spark.read
       .option("header", value = true)
       .option("inferSchema", value = true)
       // .option("dateformat", "MM/yyyy")
       .option("timestampFormat", value = "yyyy-MM-dd HH:mm:ss")
       .option("sep", value = "|")
-      .parquet("data/agosto.parquet")
+      .parquet(arquivo)
 
     //val entryMode = col("368").as("Entry Mode").cast(IntegerType)
     // val valor = df("100").as("Valor") //.cast(IntegerType)
@@ -35,7 +35,7 @@ object Fluxo:
     println(s"quantidade total de registros no arquivo = $dfcount")
 
     val selectColunas = List(
-      col("068").as("Logo"),
+      col("068").as("Modalidade"),
       col("545").as("MTI"),
       //entryMode,
       col("388").as("Resposta"),
@@ -95,15 +95,15 @@ object Fluxo:
 
 //criando colunas de categorias numéricas
     val onehotencoder = new OneHotEncoder()
-      .setInputCols(Array("Logo", "MCC", "BandeiraNum", "SexoNum"))
-      .setOutputCols(Array("catLogo", "catMCC", "catBandeira", "catSexo"))
+      .setInputCols(Array("Modalidade", "MCC", "BandeiraNum", "SexoNum"))
+      .setOutputCols(Array("catModalidade", "catMCC", "catBandeira", "catSexo"))
 
     val modelenc = onehotencoder.fit(sexoBandeiraEncoded)
     val encoded = modelenc.transform(sexoBandeiraEncoded)
 
 //  Assembling features into a single column
     val assembler = new VectorAssembler()
-     .setInputCols(Array("catLogo", "catMCC", "catBandeira", "catSexo", "Valor"))    // se for usar sem o oneHotEncoder, entao fica só Logo e MCC
+     .setInputCols(Array("catModalidade", "catMCC", "catBandeira", "catSexo", "Valor"))    // se for usar sem o oneHotEncoder, entao fica só Modalidade e MCC
      .setOutputCol("features")
 
     val saida = assembler.transform(encoded)
@@ -112,17 +112,18 @@ object Fluxo:
 
     saida.printSchema()
 
-    //fazfpgrowth(saida, array("catLogo", "catMCC", "catBandeira", "catSexo"))
+    //fazfpgrowth(saida, array("catModalidade", "catMCC", "catBandeira", "catSexo"))
     //fazfpgrowth(saida, array("features"))
 
-    saida.write.mode(SaveMode.Ignore).parquet("data/agosto_saida.parquet")
+    saida.write.mode(SaveMode.Overwrite).parquet("data/agosto_saida.parquet")
 
+    println("Arquivo saida gravado para reexec =====================")
     val treinoTesteArray = saida.randomSplit(Array(0.67, 0.33), Random.nextLong)
 
     val (treino, teste) = treinoTesteArray match {
       case Array(a, b) => 
-        (a.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"), 
-        b.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"))
+        (a.drop("Modalidade").drop("MCC").drop("Valor").drop("catModalidade").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"), 
+        b.drop("Modalidade").drop("MCC").drop("Valor").drop("catModalidade").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"))
     }
 
     treino.printSchema
@@ -181,14 +182,14 @@ object Fluxo:
   def reexec (saida: Dataset[Row], ik: Int, fk: Int): Unit =
     // saida.write.mode(SaveMode.Ignore).parquet("data/agosto_saida.parquet")
 
-    //fazfpgrowth(saida, array("Logo", "MCC", "Bandeira", "Sexo"))
+    //fazfpgrowth(saida, array("Modalidade", "MCC", "Bandeira", "Sexo"))
 
     val treinoTesteArray = saida.randomSplit(Array(0.67, 0.33), Random.nextLong)
 
     val (treino, teste) = treinoTesteArray match {
       case Array(a, b) => (a, b)
-        // (a.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"), 
-        // b.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"))
+        // (a.drop("Modalidade").drop("MCC").drop("Valor").drop("catModalidade").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"), 
+        // b.drop("Modalidade").drop("MCC").drop("Valor").drop("catModalidade").drop("catMCC").drop("Sexo").drop("SexoNum").drop("catSexo").drop("Bandeira").drop("BandeiraNum").drop("catBandeira"))
     }
 
     treino.printSchema
@@ -199,16 +200,24 @@ object Fluxo:
     println(s"quantidade de rows count no treino = $qtdTreino")
     println(s"quantidade de rows count no teste = $qtdTeste")
 
+    val somaTreino = treino.agg(sum("Valor")).first()
+    val somaTeste = teste.agg(sum("Valor")).first()
+    println(s"somatório dos valores no treino = $somaTreino")
+    println(s"somatório dos valores no teste = $somaTeste")
+
     val avaliador = new ClusteringEvaluator()
 
     for k <- ik to fk
-    do
+    do {
       val kmeans = new KMeans()
         .setK(k)
         .setSeed(Random.nextLong)
         .setFeaturesCol("features")
 
         val modelo = kmeans.fit(treino)
+
+      // Salvar o modelo
+        modelo.write.overwrite().save("data/modelo_kmeans_agosto")
 
       // Make predictions
         val previsoes = modelo.transform(teste)
@@ -217,30 +226,38 @@ object Fluxo:
         // println("Schema do dataset de previsoes com " + k.toString() + " clusters: ")
         // previsoes.printSchema()
 
-        println("Quantidade de registros em cada cluster, para " + k.toString() + "clusters:")
+        println("Cluster Centers: ")
+        modelo.clusterCenters.foreach(println)
+
+        println("Quantidade de registros em cada cluster, para " + k.toString() + " clusters:")
         previsoes.groupBy(col("prediction")).count().as("qtd_por_cluster").show()
 
-        println("Os 5 maiores valores de cada cluster:")
-        for n <- 0 to k
-        do  previsoes.filter(col("prediction") === n).sort(col("Valor").desc).show(5)
+        println("Os 10 maiores valores de cada cluster:")
+        for n <- 0 to k-1
+        do { println(s"Os 10 maiores valores no cluster $n :")
+            previsoes.filter(col("prediction") === n).sort(col("Valor").desc).show(10)
+        }
 
-        println("Os 5 MCCs com maiores quantidades de transações em cada cluster:")
-        for n <- 0 to k
-        do previsoes.filter(col("prediction") === 1).groupBy(col("MCC"))
+        println("Os 10 MCCs com maiores quantidades de transações em cada cluster:")
+        for n <- 0 to k-1
+        do { println(s"Os 10 MCCs com maiores quantidades de transações no cluster $n :")
+           previsoes.filter(col("prediction") === n).groupBy(col("MCC"))
            .count() //.as("qtd_por_mcc")
            .sort(col("count").desc)
            .show(10)
+        }
 
         println("As 5 Modalidades de cartão com maiores quantidades de transações em cada cluster:")
-        for n <- 0 to k
-        do previsoes.filter(col("prediction") === 1).groupBy(col("Logo"))
+        for n <- 0 to k-1
+        do { println(s"As 10 Modalidades de cartão com maiores quantidades de transações no cluster $n :")
+           previsoes.filter(col("prediction") === n).groupBy(col("Modalidade"))
            .count()  //.as("qtd_por_mdld")
            .sort(col("count").desc)
            .show(10) 
-
+        }
         // grava o resultado no arquivo parquet
-        previsoes.select("Logo", "Bandeira", "MCC", "Valor", "Sexo", "prediction")
-           .write.mode(SaveMode.Ignore)
+        previsoes.select("Modalidade", "Bandeira", "MCC", "Valor", "Sexo", "prediction")
+           .write.mode(SaveMode.Overwrite)
            .option("header", "true")
            .parquet("data/agosto_saida_clusters_" + k.toString() + ".parquet")
      
@@ -249,17 +266,17 @@ object Fluxo:
         // val Row(coeff1: Matrix) = Correlation.corr(previsoes, "features").head
         // println(s"Pearson correlation matrix:\n $coeff1")
 
-
-      // Evaluate clustering by computing Silhouette score
-        // val silhouette = avaliador.evaluate(previsoes)
-        // println(s"Silhouette for $k with squared euclidean distance = $silhouette")
+        // Evaluate clustering by computing Silhouette score
+         val silhouette = avaliador.evaluate(previsoes)
+         println(s"Silhouette for $k with squared euclidean distance = $silhouette")
+    }  
   end reexec
 
-  def carregaBase(spark: SparkSession): Dataset[Row] = 
+  def carregaBase(spark: SparkSession, arquivo: String): Dataset[Row] = 
     val df = spark.read
       .option("header", value = true)
       .option("inferSchema", value = true)
-      .parquet("data/agosto_saida.parquet")
+      .parquet(arquivo)
     df
   
   end carregaBase
@@ -269,7 +286,7 @@ object Fluxo:
 
     // Construção do DataFrame com um array das colunas
     val arrayDF = df.withColumn("colunasArray", arrCols) //, "Valor"))
-    //val arrayDF = df.withColumn("colunasArray", array("Logo", "MCC", "Bandeira", "Sexo")) //, "Valor"))
+    //val arrayDF = df.withColumn("colunasArray", array("Modalidade", "MCC", "Bandeira", "Sexo")) //, "Valor"))
 
     val fpgrowth = new FPGrowth().setItemsCol("colunasArray").setMinSupport(0.5).setMinConfidence(0.5)
     val modelofp = fpgrowth.fit(arrayDF)
@@ -287,4 +304,5 @@ object Fluxo:
     
   end fazfpgrowth
 
+  
 end Fluxo

@@ -25,7 +25,7 @@ object Trabalho:
     //val entryMode = col("368").as("Entry Mode").cast(IntegerType)
     // val valor = df("100").as("Valor") //.cast(IntegerType)
     val selectColunas = List(
-      col("068").as("Logo"),
+      col("068").as("Modalidade"),
       col("545").as("MTI"),
       //entryMode,
       col("388").as("Resposta"),
@@ -72,15 +72,15 @@ object Trabalho:
     
 //criando colunas de categorias numéricas
     val onehotencoder = new OneHotEncoder()
-      .setInputCols(Array("Logo", "MCC"))
-      .setOutputCols(Array("catLogo", "catMCC"))
+      .setInputCols(Array("Modalidade", "MCC"))
+      .setOutputCols(Array("catModalidade", "catMCC"))
 
     val modelenc = onehotencoder.fit(limpo)
     val encoded = modelenc.transform(limpo)
 
 //  Assembling features into a single column
     val assembler = new VectorAssembler()
-     .setInputCols(Array("catLogo", "catMCC", "Valor"))    // se for usar sem o oneHotEncoder, entao fica só Logo e MCC
+     .setInputCols(Array("catModalidade", "catMCC", "Valor"))    // se for usar sem o oneHotEncoder, entao fica só Modalidade e MCC
      .setOutputCol("features")
 
 
@@ -91,8 +91,8 @@ object Trabalho:
 
     val (treino, teste) = treinoTesteArray match {
       case Array(a, b) => 
-        (a.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC"), 
-        b.drop("Logo").drop("MCC").drop("Valor").drop("catLogo").drop("catMCC"))
+        (a.drop("Modalidade").drop("MCC").drop("Valor").drop("catModalidade").drop("catMCC"), 
+        b.drop("Modalidade").drop("MCC").drop("Valor").drop("catModalidade").drop("catMCC"))
     }
 
     treino.printSchema()

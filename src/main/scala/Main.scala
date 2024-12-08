@@ -24,6 +24,7 @@ import org.apache.spark.sql.Column
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.SaveMode
 import cartaospark.Trabalho
+import org.apache.spark.ml.PipelineModel
 
 // import com.globalmentor.apache.hadoop.fs.BareLocalFileSystem
 // import org.apache.hadoop.fs.FileSystem
@@ -40,11 +41,19 @@ object Main:
       .master("local[*]")
       .getOrCreate()
 
-/*   val dados = Fluxo.montaBase(spark)
-     Fluxo.exec(dados)
- */
+    //arquivos parquet e arquivo do modelo treinado
+    val agostoarq = "data/agosto.parquet"
+    val maioarq = "data/maio.parquet"
+    val modelosalvo = "data/modelo_kmeans_agosto"
 
-    val saida = Fluxo.carregaBase(spark)
+    // Carregar o modelo salvo
+    val modeloload = PipelineModel.load(modelosalvo)
+
+    // val dados = Fluxo.montaBase(spark, maioarq)
+    // Fluxo.exec(dados)
+ 
+
+    val saida = Fluxo.carregaBase(spark, agostoarq)
     val ik = 2
     val fk = 5
     Fluxo.reexec(saida, ik, fk)
@@ -80,7 +89,7 @@ object Main:
       col("002").as("Data"),
       col("006").as("Hora"),
       col("035").as("Cartao"),
-      col("068").as("Logo"),
+      col("068").as("Modalidade"),
       col("087").as("Action Reason"),
       col("089").as("Reversal Reason"),
       col("207").as("Agencia"),
@@ -236,7 +245,7 @@ object Main:
 col("002").as("Data")
 col("006").as("Hora")
 col("035").as("Cartao")
-col("068").as("Logo")
+col("068").as("Modalidade")
 col("087").as("Action Reason")
 col("089").as("Reversal Reason")
 col("207").as("Agencia")
