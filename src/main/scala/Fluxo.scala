@@ -184,8 +184,8 @@ object Fluxo:
     // saida.write.mode(SaveMode.Ignore).parquet("data/agosto_saida.parquet")
 
     // fazfpgrowth(saida, array("Modalidade", "MCC", "Bandeira", "Sexo"))
-    println("Faz FPGrowth do dataset:")
-    fazfpgrowth(saida, array("features"), minsup, minconfidence)
+    // println("Faz FPGrowth do dataset:")
+    // fazfpgrowth(saida, array("features"), minsup, minconfidence)
 
     println("Análise descritiva do dataset:")    
     saida.describe().show()
@@ -218,8 +218,8 @@ object Fluxo:
     println(s"Análise descritiva do conjunto de dados de teste")
     teste.describe().show()
 
-    println(s"Faz FPGrowth no dataset de teste:")   // nao funciona pq reclama q ja tem o `prediction` ?
-    fazfpgrowth(teste, array("features"), minsup, minconfidence)
+    // println(s"Faz FPGrowth no dataset de teste:")   // nao funciona pq reclama q ja tem o `prediction` ?
+    // fazfpgrowth(teste, array("features"), minsup, minconfidence)
 
     val avaliador = new ClusteringEvaluator()
     val qtshow = 5
