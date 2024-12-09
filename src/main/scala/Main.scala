@@ -43,20 +43,24 @@ object Main:
 
     //arquivos parquet e arquivo do modelo treinado
     val agostoarq = "data/agosto.parquet"
+    val agostosaidaarq = "data/agosto_saida.parquet"
     val maioarq = "data/maio.parquet"
-    val modelosalvo = "data/modelo_kmeans_agosto"
+    val maiosaidaarq = "data/maio_saida.parquet"
+    val modelosalvo = "data/agosto_saida_modelo_kmeans"
+    val fpMinSupport = 0.2
+    val fpMinConfidence = 0.6
 
     // Carregar o modelo salvo
-    val modeloload = PipelineModel.load(modelosalvo)
+    // val modeloload = PipelineModel.load(modelosalvo)
 
-    // val dados = Fluxo.montaBase(spark, maioarq)
-    // Fluxo.exec(dados)
- 
+    val dados = Fluxo.montaBase(spark, maioarq)
+    Fluxo.prepara(dados, maiosaidaarq)
+    println(s"******** dados de maio gerados no padrão!! $maiosaidaarq")
 
-    val saida = Fluxo.carregaBase(spark, agostoarq)
+    val saida = Fluxo.carregaBase(spark, agostosaidaarq)
     val ik = 2
-    val fk = 5
-    Fluxo.reexec(saida, ik, fk)
+    val fk = 8
+    Fluxo.reexec(saida, ik, fk, modelosalvo, fpMinSupport, fpMinConfidence)
 
     spark.stop()
     

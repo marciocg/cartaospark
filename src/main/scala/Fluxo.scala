@@ -3,7 +3,7 @@ package cartaospark
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.*
 import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.ml.clustering.KMeans
+import org.apache.spark.ml.clustering.{KMeans, KMeansModel}
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.evaluation.ClusteringEvaluator
 import scala.util.Random
@@ -84,7 +84,7 @@ object Fluxo:
   end montaBase
 
 
-  def exec(limpo: Dataset[Row]): Unit =
+  def prepara(limpo: Dataset[Row], arquivo: String): Unit =
     
     val sexoBandeiraIndexer = new StringIndexer()
       .setInputCols(Array("Sexo", "Bandeira"))
@@ -115,9 +115,10 @@ object Fluxo:
     //fazfpgrowth(saida, array("catModalidade", "catMCC", "catBandeira", "catSexo"))
     //fazfpgrowth(saida, array("features"))
 
-    saida.write.mode(SaveMode.Overwrite).parquet("data/agosto_saida.parquet")
+    saida.write.mode(SaveMode.Overwrite).parquet(arquivo)
 
-    println("Arquivo saida gravado para reexec =====================")
+    println(s"Arquivo saida gravado para reexec ===================== $arquivo")
+ /*    
     val treinoTesteArray = saida.randomSplit(Array(0.67, 0.33), Random.nextLong)
 
     val (treino, teste) = treinoTesteArray match {
@@ -176,13 +177,18 @@ object Fluxo:
   // Shows the result.
     println("Cluster Centers: ")
     modelo.clusterCenters.foreach(println)
- */    
-  end exec
+ */     */
+  end prepara
 
-  def reexec (saida: Dataset[Row], ik: Int, fk: Int): Unit =
+  def reexec (saida: Dataset[Row], ik: Int, fk: Int, arqmodelo: String, minsup: Double, minconfidence: Double): Unit =
     // saida.write.mode(SaveMode.Ignore).parquet("data/agosto_saida.parquet")
 
-    //fazfpgrowth(saida, array("Modalidade", "MCC", "Bandeira", "Sexo"))
+    // fazfpgrowth(saida, array("Modalidade", "MCC", "Bandeira", "Sexo"))
+    println("Faz FPGrowth do dataset:")
+    fazfpgrowth(saida, array("features"), minsup, minconfidence)
+
+    println("Análise descritiva do dataset:")    
+    saida.describe().show()
 
     val treinoTesteArray = saida.randomSplit(Array(0.67, 0.33), Random.nextLong)
 
@@ -195,6 +201,10 @@ object Fluxo:
     treino.printSchema
     teste.printSchema
 
+    // salva os arquivos de treino e teste para executar análise
+    treino.write.mode(SaveMode.Overwrite).parquet("data/agosto_saida_treino.parquet")
+    teste.write.mode(SaveMode.Overwrite).parquet("data/agosto_saida_teste.parquet")
+
     val qtdTreino = treino.count()
     val qtdTeste = teste.count()
     println(s"quantidade de rows count no treino = $qtdTreino")
@@ -205,7 +215,14 @@ object Fluxo:
     println(s"somatório dos valores no treino = $somaTreino")
     println(s"somatório dos valores no teste = $somaTeste")
 
+    println(s"Análise descritiva do conjunto de dados de teste")
+    teste.describe().show()
+
+    println(s"Faz FPGrowth no dataset de teste:")   // nao funciona pq reclama q ja tem o `prediction` ?
+    fazfpgrowth(teste, array("features"), minsup, minconfidence)
+
     val avaliador = new ClusteringEvaluator()
+    val qtshow = 5
 
     for k <- ik to fk
     do {
@@ -217,59 +234,11 @@ object Fluxo:
         val modelo = kmeans.fit(treino)
 
       // Salvar o modelo
-        modelo.write.overwrite().save("data/modelo_kmeans_agosto")
+        modelo.write.overwrite().save(s"$arqmodelo" +  k.toString() + " clusters")
+        println(s"Modelo salvo: $arqmodelo")
 
-      // Make predictions
-        val previsoes = modelo.transform(teste)
-      // previsoes.select("features", "prediction")
-      //   .filter(not(col("prediction") === 0)).show()
-        // println("Schema do dataset de previsoes com " + k.toString() + " clusters: ")
-        // previsoes.printSchema()
-
-        println("Cluster Centers: ")
-        modelo.clusterCenters.foreach(println)
-
-        println("Quantidade de registros em cada cluster, para " + k.toString() + " clusters:")
-        previsoes.groupBy(col("prediction")).count().as("qtd_por_cluster").show()
-
-        println("Os 10 maiores valores de cada cluster:")
-        for n <- 0 to k-1
-        do { println(s"Os 10 maiores valores no cluster $n :")
-            previsoes.filter(col("prediction") === n).sort(col("Valor").desc).show(10)
-        }
-
-        println("Os 10 MCCs com maiores quantidades de transações em cada cluster:")
-        for n <- 0 to k-1
-        do { println(s"Os 10 MCCs com maiores quantidades de transações no cluster $n :")
-           previsoes.filter(col("prediction") === n).groupBy(col("MCC"))
-           .count() //.as("qtd_por_mcc")
-           .sort(col("count").desc)
-           .show(10)
-        }
-
-        println("As 5 Modalidades de cartão com maiores quantidades de transações em cada cluster:")
-        for n <- 0 to k-1
-        do { println(s"As 10 Modalidades de cartão com maiores quantidades de transações no cluster $n :")
-           previsoes.filter(col("prediction") === n).groupBy(col("Modalidade"))
-           .count()  //.as("qtd_por_mdld")
-           .sort(col("count").desc)
-           .show(10) 
-        }
-        // grava o resultado no arquivo parquet
-        previsoes.select("Modalidade", "Bandeira", "MCC", "Valor", "Sexo", "prediction")
-           .write.mode(SaveMode.Overwrite)
-           .option("header", "true")
-           .parquet("data/agosto_saida_clusters_" + k.toString() + ".parquet")
-     
-        // correlations:
-        // val pcorr = previsoes.map(Tuple1.apply).toDF("features")
-        // val Row(coeff1: Matrix) = Correlation.corr(previsoes, "features").head
-        // println(s"Pearson correlation matrix:\n $coeff1")
-
-        // Evaluate clustering by computing Silhouette score
-         val silhouette = avaliador.evaluate(previsoes)
-         println(s"Silhouette for $k with squared euclidean distance = $silhouette")
-    }  
+        analisadadosesalva(modelo, teste, k, avaliador, qtshow)
+    }
   end reexec
 
   def carregaBase(spark: SparkSession, arquivo: String): Dataset[Row] = 
@@ -281,14 +250,14 @@ object Fluxo:
   
   end carregaBase
 
-  def fazfpgrowth(df: Dataset[Row], arrCols: Column): Unit = 
+  def fazfpgrowth(df: Dataset[Row], arrCols: Column, minsup: Double, minconfidence: Double): Unit = 
     //https://spark.apache.org/docs/3.5.3/ml-frequent-pattern-mining.html#fp-growth
 
     // Construção do DataFrame com um array das colunas
     val arrayDF = df.withColumn("colunasArray", arrCols) //, "Valor"))
     //val arrayDF = df.withColumn("colunasArray", array("Modalidade", "MCC", "Bandeira", "Sexo")) //, "Valor"))
 
-    val fpgrowth = new FPGrowth().setItemsCol("colunasArray").setMinSupport(0.5).setMinConfidence(0.5)
+    val fpgrowth = new FPGrowth().setItemsCol("colunasArray").setMinSupport(minsup).setMinConfidence(minconfidence)
     val modelofp = fpgrowth.fit(arrayDF)
     
     // Display frequent itemsets.
@@ -301,8 +270,76 @@ object Fluxo:
     // consequents as prediction
     modelofp.transform(arrayDF).show()
     
-    
   end fazfpgrowth
 
+  def analisadadosesalva(modelo: KMeansModel, teste: Dataset[Row], k: Int, avaliador: ClusteringEvaluator, qtshow: Int): Unit = 
   
+      // Make predictions
+        val previsoes = modelo.transform(teste)
+      // previsoes.select("features", "prediction")
+      //   .filter(not(col("prediction") === 0)).show()
+        // println("Schema do dataset de previsoes com " + k.toString() + " clusters: ")
+        // previsoes.printSchema()
+
+        // println("Cluster Centers: ")
+        // modelo.clusterCenters.foreach(println)
+
+        println("Quantidade de registros em cada cluster, para " + k.toString() + " clusters:")
+        previsoes.groupBy(col("prediction")).count().as("qtd_por_cluster").show()
+
+        //faz um describe de cada cluster na iteração
+        for n <- 0 to k-1
+        do { println(s"Análise descritiva no cluster $n para execução com $k clusters:")
+            previsoes.select("Modalidade", "Bandeira", "MCC", "Sexo", "Valor", "prediction")
+              .filter(col("prediction") === n).describe().show()
+        }
+
+        // println("Os 10 maiores valores de cada cluster:")
+        for n <- 0 to k-1
+        do { println(s"Os $qtshow maiores valores no cluster $n para $k clusters:")
+            previsoes.select("Modalidade", "Bandeira", "MCC", "Sexo", "Valor")
+              .filter(col("prediction") === n).sort(col("Valor").desc).show(qtshow)
+        }
+
+        for n <- 0 to k-1
+        do { println(s"Os $qtshow menores valores no cluster $n para $k clusters:")
+            previsoes.select("Modalidade", "Bandeira", "MCC", "Sexo", "Valor")
+              .filter(col("prediction") === n).sort(col("Valor").asc).show(qtshow)
+        }
+
+        // println("Os 10 MCCs com maiores quantidades de transações em cada cluster:")
+        for n <- 0 to k-1
+        do { println(s"Os $qtshow MCCs com maiores quantidades de transações no cluster $n para $k clusters:")
+           previsoes.filter(col("prediction") === n).groupBy(col("MCC"))
+           .count() //.as("qtd_por_mcc")
+           .sort(col("count").desc)
+           .show(qtshow)
+        }
+
+        // println("As 10 Modalidades de cartão com maiores quantidades de transações em cada cluster:")
+        for n <- 0 to k-1
+        do { println(s"As $qtshow Modalidades de cartão com maiores quantidades de transações no cluster $n para $k clusters:")
+           previsoes.filter(col("prediction") === n).groupBy(col("Modalidade"))
+           .count()  //.as("qtd_por_mdld")
+           .sort(col("count").desc)
+           .show(qtshow) 
+        }
+
+        // grava o resultado no arquivo parquet
+        //previsoes.select("Modalidade", "Bandeira", "MCC", "Valor", "Sexo", "prediction")
+        previsoes.write.mode(SaveMode.Overwrite)
+           .option("header", "true")
+           .parquet("data/agosto_saida_clusters_" + k.toString() + ".parquet")
+     
+        // correlations:
+        // val pcorr = previsoes.map(Tuple1.apply).toDF("features")
+        // val Row(coeff1: Matrix) = Correlation.corr(previsoes, "features").head
+        // println(s"Pearson correlation matrix:\n $coeff1")
+
+        // Evaluate clustering by computing Silhouette score
+         val silhouette = avaliador.evaluate(previsoes)
+         
+         println(s"O Silhouette calculado para iteração com k=$k foi de $silhouette")
+  end analisadadosesalva
+
 end Fluxo
