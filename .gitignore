@@ -38,3 +38,19 @@ data/agosto.parquet
 data/agosto_saida.parquet
 data/maio.parquet
 data/maio_saida.parquet
+data/agosto_saida_clusters_2.parquet
+data/agosto_saida_clusters_3.parquet
+data/agosto_saida_clusters_4.parquet
+data/agosto_saida_clusters_5.parquet
+data/agosto_saida_clusters_6.parquet
+data/agosto_saida_clusters_7.parquet
+data/agosto_saida_clusters_8.parquet
+data/agosto_saida_modelo_kmeans2 clusters
+data/agosto_saida_modelo_kmeans3 clusters
+data/agosto_saida_modelo_kmeans4 clusters
+data/agosto_saida_modelo_kmeans5 clusters
+data/agosto_saida_modelo_kmeans6 clusters
+data/agosto_saida_modelo_kmeans7 clusters
+data/agosto_saida_modelo_kmeans8 clusters
+
+

@@ -234,10 +234,11 @@ object Fluxo:
         val modelo = kmeans.fit(treino)
 
       // Salvar o modelo
-        modelo.write.overwrite().save(s"$arqmodelo" +  k.toString() + " clusters")
-        println(s"Modelo salvo: $arqmodelo")
+        val nomemodelo: String = (s"$arqmodelo" +  k.toString() + " clusters")
+        modelo.write.overwrite().save(nomemodelo)
+        println(s"Modelo salvo: $nomemodelo")
 
-        analisadadosesalva(modelo, teste, k, avaliador, qtshow)
+        analisadadosesalva(modelo, teste, k, avaliador, qtshow, false)
     }
   end reexec
 
@@ -272,7 +273,7 @@ object Fluxo:
     
   end fazfpgrowth
 
-  def analisadadosesalva(modelo: KMeansModel, teste: Dataset[Row], k: Int, avaliador: ClusteringEvaluator, qtshow: Int): Unit = 
+  def analisadadosesalva(modelo: KMeansModel, teste: Dataset[Row], k: Int, avaliador: ClusteringEvaluator, qtshow: Int, indGrava: Boolean): Unit = 
   
       // Make predictions
         val previsoes = modelo.transform(teste)
@@ -325,12 +326,29 @@ object Fluxo:
            .show(qtshow) 
         }
 
+        for n <- 0 to k-1
+        do { println(s"As $qtshow Sexo com maiores quantidades de transações no cluster $n para $k clusters:")
+           previsoes.filter(col("prediction") === n).groupBy(col("Sexo"))
+           .count()  //.as("qtd_por_mdld")
+           .sort(col("count").desc)
+           .show(qtshow) 
+        }
+
+        for n <- 0 to k-1
+        do { println(s"As $qtshow Bandeiras de cartão com maiores quantidades de transações no cluster $n para $k clusters:")
+           previsoes.filter(col("prediction") === n).groupBy(col("Bandeira"))
+           .count()  //.as("qtd_por_mdld")
+           .sort(col("count").desc)
+           .show(qtshow) 
+        }
+
         // grava o resultado no arquivo parquet
         //previsoes.select("Modalidade", "Bandeira", "MCC", "Valor", "Sexo", "prediction")
-        previsoes.write.mode(SaveMode.Overwrite)
+        if (indGrava) {
+          previsoes.write.mode(SaveMode.Overwrite)
            .option("header", "true")
            .parquet("data/agosto_saida_clusters_" + k.toString() + ".parquet")
-     
+        }
         // correlations:
         // val pcorr = previsoes.map(Tuple1.apply).toDF("features")
         // val Row(coeff1: Matrix) = Correlation.corr(previsoes, "features").head
