@@ -53,9 +53,9 @@ object Main:
     // Carregar o modelo salvo
     // val modeloload = PipelineModel.load(modelosalvo)
 
-    val dados = Fluxo.montaBase(spark, maioarq)
-    Fluxo.prepara(dados, maiosaidaarq)
-    println(s"******** dados de maio gerados no padrão!! $maiosaidaarq")
+    // val dados = Fluxo.montaBase(spark, maioarq)
+    // Fluxo.prepara(dados, maiosaidaarq)
+    // println(s"******** dados de maio gerados no padrão!! $maiosaidaarq")
 
     val saida = Fluxo.carregaBase(spark, agostosaidaarq)
     val ik = 2
