@@ -187,7 +187,7 @@ object Fluxo:
     // println("Faz FPGrowth do dataset:")
     // fazfpgrowth(saida, array("features"), minsup, minconfidence)
 
-    println("Análise descritiva do dataset:")    
+    println("Análise descritiva do conjunto de dados que será quebrado em `treino` e `teste`:")    
     saida.describe().show()
 
     val treinoTesteArray = saida.randomSplit(Array(0.67, 0.33), Random.nextLong)
@@ -207,13 +207,13 @@ object Fluxo:
 
     val qtdTreino = treino.count()
     val qtdTeste = teste.count()
-    println(s"quantidade de rows count no treino = $qtdTreino")
-    println(s"quantidade de rows count no teste = $qtdTeste")
+    println(s"Contagem da quantidade de linhas no arquivo de treino = $qtdTreino")
+    println(s"Contagem da quantidade de linhas no arquivo de teste  = $qtdTeste")
 
     val somaTreino = treino.agg(sum("Valor")).first()
     val somaTeste = teste.agg(sum("Valor")).first()
-    println(s"somatório dos valores no treino = $somaTreino")
-    println(s"somatório dos valores no teste = $somaTeste")
+    println(s"Somatório da coluna Valor no treino = $somaTreino")
+    println(s"Somatório da coluna Valor no teste = $somaTeste")
 
     println(s"Análise descritiva do conjunto de dados de teste")
     teste.describe().show()
@@ -223,22 +223,25 @@ object Fluxo:
 
     val avaliador = new ClusteringEvaluator()
     val qtshow = 5
+    var nLong: Long = 0L
 
     for k <- ik to fk
     do {
+      nLong = Random.nextLong
+      println(s"Next Long gerado para $k clusters é $nLong")
       val kmeans = new KMeans()
         .setK(k)
-        .setSeed(Random.nextLong)
+        .setSeed(nLong)
         .setFeaturesCol("features")
 
         val modelo = kmeans.fit(treino)
 
       // Salvar o modelo
-        val nomemodelo: String = (s"$arqmodelo" +  k.toString() + " clusters")
+        val nomemodelo: String = (s"$arqmodelo" +  k.toString() + "_clusters")
         modelo.write.overwrite().save(nomemodelo)
         println(s"Modelo salvo: $nomemodelo")
 
-        analisadadosesalva(modelo, teste, k, avaliador, qtshow, false)
+        analisadados(modelo, teste, k, avaliador, qtshow, "agosto")   // analise dos dados de agosto somente com 1/3 de teste
     }
   end reexec
 
@@ -273,8 +276,10 @@ object Fluxo:
     
   end fazfpgrowth
 
-  def analisadadosesalva(modelo: KMeansModel, teste: Dataset[Row], k: Int, avaliador: ClusteringEvaluator, qtshow: Int, indGrava: Boolean): Unit = 
+  def analisadados(modelo: KMeansModel, teste: Dataset[Row], k: Int, avaliador: ClusteringEvaluator, qtshow: Int, mes: String): Unit = 
   
+        println(s"****** [ Análise dos dados de $mes ] ******")
+        teste.describe().show()
       // Make predictions
         val previsoes = modelo.transform(teste)
       // previsoes.select("features", "prediction")
@@ -285,32 +290,32 @@ object Fluxo:
         // println("Cluster Centers: ")
         // modelo.clusterCenters.foreach(println)
 
-        println("Quantidade de registros em cada cluster, para " + k.toString() + " clusters:")
+        println("Quantidade de registros em cada cluster, para " + k.toString() + s" clusters em $mes:")
         previsoes.groupBy(col("prediction")).count().as("qtd_por_cluster").show()
 
         //faz um describe de cada cluster na iteração
         for n <- 0 to k-1
-        do { println(s"Análise descritiva no cluster $n para execução com $k clusters:")
+        do { println(s"Análise descritiva no cluster $n para execução com $k clusters em $mes:")
             previsoes.select("Modalidade", "Bandeira", "MCC", "Sexo", "Valor", "prediction")
               .filter(col("prediction") === n).describe().show()
         }
 
         // println("Os 10 maiores valores de cada cluster:")
         for n <- 0 to k-1
-        do { println(s"Os $qtshow maiores valores no cluster $n para $k clusters:")
+        do { println(s"Os $qtshow maiores valores no cluster $n para $k clusters em $mes:")
             previsoes.select("Modalidade", "Bandeira", "MCC", "Sexo", "Valor")
               .filter(col("prediction") === n).sort(col("Valor").desc).show(qtshow)
         }
 
         for n <- 0 to k-1
-        do { println(s"Os $qtshow menores valores no cluster $n para $k clusters:")
+        do { println(s"Os $qtshow menores valores no cluster $n para $k clusters em $mes:")
             previsoes.select("Modalidade", "Bandeira", "MCC", "Sexo", "Valor")
               .filter(col("prediction") === n).sort(col("Valor").asc).show(qtshow)
         }
 
         // println("Os 10 MCCs com maiores quantidades de transações em cada cluster:")
         for n <- 0 to k-1
-        do { println(s"Os $qtshow MCCs com maiores quantidades de transações no cluster $n para $k clusters:")
+        do { println(s"Os $qtshow MCCs com maiores quantidades de transações no cluster $n para $k clusters em $mes:")
            previsoes.filter(col("prediction") === n).groupBy(col("MCC"))
            .count() //.as("qtd_por_mcc")
            .sort(col("count").desc)
@@ -319,7 +324,7 @@ object Fluxo:
 
         // println("As 10 Modalidades de cartão com maiores quantidades de transações em cada cluster:")
         for n <- 0 to k-1
-        do { println(s"As $qtshow Modalidades de cartão com maiores quantidades de transações no cluster $n para $k clusters:")
+        do { println(s"As $qtshow Modalidades de cartão com maiores quantidades de transações no cluster $n para $k clusters em $mes:")
            previsoes.filter(col("prediction") === n).groupBy(col("Modalidade"))
            .count()  //.as("qtd_por_mdld")
            .sort(col("count").desc)
@@ -327,7 +332,7 @@ object Fluxo:
         }
 
         for n <- 0 to k-1
-        do { println(s"As $qtshow Sexo com maiores quantidades de transações no cluster $n para $k clusters:")
+        do { println(s"Sexo com maiores quantidades de transações no cluster $n para $k clusters em $mes:")
            previsoes.filter(col("prediction") === n).groupBy(col("Sexo"))
            .count()  //.as("qtd_por_mdld")
            .sort(col("count").desc)
@@ -335,7 +340,7 @@ object Fluxo:
         }
 
         for n <- 0 to k-1
-        do { println(s"As $qtshow Bandeiras de cartão com maiores quantidades de transações no cluster $n para $k clusters:")
+        do { println(s"Bandeiras de cartão com maiores quantidades de transações no cluster $n para $k clusters em $mes:")
            previsoes.filter(col("prediction") === n).groupBy(col("Bandeira"))
            .count()  //.as("qtd_por_mdld")
            .sort(col("count").desc)
@@ -344,11 +349,7 @@ object Fluxo:
 
         // grava o resultado no arquivo parquet
         //previsoes.select("Modalidade", "Bandeira", "MCC", "Valor", "Sexo", "prediction")
-        if (indGrava) {
-          previsoes.write.mode(SaveMode.Overwrite)
-           .option("header", "true")
-           .parquet("data/agosto_saida_clusters_" + k.toString() + ".parquet")
-        }
+        salvaDados(previsoes, SaveMode.Overwrite, mes, k)
         // correlations:
         // val pcorr = previsoes.map(Tuple1.apply).toDF("features")
         // val Row(coeff1: Matrix) = Correlation.corr(previsoes, "features").head
@@ -357,7 +358,14 @@ object Fluxo:
         // Evaluate clustering by computing Silhouette score
          val silhouette = avaliador.evaluate(previsoes)
          
-         println(s"O Silhouette calculado para iteração com k=$k foi de $silhouette")
-  end analisadadosesalva
+         println(s"O Silhouette calculado para iteração com k=$k foi de $silhouette para $mes")
+  end analisadados
+
+  def salvaDados(previsoes: Dataset[Row], svmode: SaveMode, mes: String, k: Int): Unit =
+            previsoes.write.mode(svmode)
+             .option("header", "true")
+             .parquet("data/" + mes + "_saida_clusters_" + k.toString() + ".parquet")
+
+  end salvaDados
 
 end Fluxo

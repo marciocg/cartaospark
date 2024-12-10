@@ -28,6 +28,8 @@ javaOptions ++= Seq(
 javaHome := Some(file("C:\\Users\\F6780837\\.vscode\\extensions\\redhat.java-1.37.0-win32-x64\\jre\\17.0.13-win32-x86_64"))
 
 
+scalacOptions ++= Seq("-encoding", "utf8")
+
 lazy val root = project
   .in(file("."))
   .settings(
