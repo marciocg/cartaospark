@@ -49,7 +49,8 @@ object Main:
     val agostosaidaarqCluster3 = "data/agosto_saida_clusters_3.parquet"
     val maioarq = "data/maio.parquet"
     val maiosaidaarq = "data/maio_saida.parquet"
-    val modelosalvo = "data/agosto_saida_modelo_kmeans3_clusters3_clusters"
+    val qtCluster = 3
+    val modelosalvo = (s"data/agosto_saida_modelo_kmeans3_clusters$qtCluster" + "_clusters")
     val ik = 2
     val fk = 7
     val fpMinSupport = 0.2
@@ -64,12 +65,13 @@ object Main:
     val saida = Fluxo.carregaBase(spark, agostosaidaarq)
     Fluxo.reexec(saida, ik, fk, modelosalvo, fpMinSupport, fpMinConfidence)
 */
+    // ===> para aplicar o modelo treinado em um conjunto de dados, rodar a partir daqui
     // Carregar o modelo salvo e a base de saída já treinada
     val modeloload = KMeansModel.load(modelosalvo)
     
     //val saidatreinada = Fluxo.carregaBase(spark, agostosaidaarq)
     val saidamaio = Fluxo.carregaBase(spark, maiosaidaarq)
-    Fluxo.analisadados(modeloload, saidamaio, 3, new ClusteringEvaluator(), 5, "maio")
+    Fluxo.analisadados(modeloload, saidamaio, qtCluster, new ClusteringEvaluator(), 5, "maio")
 
     spark.stop()
     

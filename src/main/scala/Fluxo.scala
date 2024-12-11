@@ -287,8 +287,8 @@ object Fluxo:
         // println("Schema do dataset de previsoes com " + k.toString() + " clusters: ")
         // previsoes.printSchema()
 
-        // println("Cluster Centers: ")
-        // modelo.clusterCenters.foreach(println)
+        println("Cluster Centers: ")
+        modelo.clusterCenters.foreach(println)
 
         println("Quantidade de registros em cada cluster, para " + k.toString() + s" clusters em $mes:")
         previsoes.groupBy(col("prediction")).count().as("qtd_por_cluster").show()
